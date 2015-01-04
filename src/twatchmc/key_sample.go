@@ -1,0 +1,8 @@
+package main
+
+/*
+const(
+  COMSUMER_KEY      = "YOUR COMSUMER_KEY"
+  COMSUMER_SERCRET  =  "YOUR COMSUMER_SERCRET"
+)
+*/
