@@ -25,6 +25,7 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/ChimeraCoder/anaconda"
 	"log"
@@ -35,7 +36,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-  "flag"
 )
 
 // Global Variable
@@ -44,24 +44,24 @@ var player_data map[string]*PlayerData
 var sync_pd *sync.Mutex = new(sync.Mutex)
 
 func main() {
-  var ver = flag.Bool("v", false,  "Show twatchmc(Golang) version")
-  var auth = flag.Bool("a", false, "Authorization(Twitter Account)")
-  var jar_file_name = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
-  flag.Parse()
-  if (*ver) {
-    fmt.Println("twatchmc(Golang) version:0.1beta(2015/1/4)")
-    return
-  }
+	var ver = flag.Bool("v", false, "Show twatchmc(Golang) version")
+	var auth = flag.Bool("a", false, "Authorization(Twitter Account)")
+	var jar_file_name = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
+	flag.Parse()
+	if *ver {
+		fmt.Println("twatchmc(Golang) version:0.1beta(2015/1/4)")
+		return
+	}
 	// Set Client Keys
 	anaconda.SetConsumerKey(COMSUMER_KEY)
 	anaconda.SetConsumerSecret(COMSUMER_SERCRET)
 	// Check key
 	home := os.Getenv("HOME")
-  var file *os.File
-  var err error
-  if (*auth == false) {
-    file, err = os.Open(home + "/.twatchmc/.key")
-  }
+	var file *os.File
+	var err error
+	if *auth == false {
+		file, err = os.Open(home + "/.twatchmc/.key")
+	}
 	if (*auth) || err != nil {
 		auth_url, tempCre, err := anaconda.AuthorizationURL("")
 		if err != nil {
