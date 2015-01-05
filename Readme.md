@@ -6,11 +6,11 @@ twatchmcはMinecraftのサーバログをTwitterに自動投稿するプログ�
 主に自分で使って楽しむために作りました。  
 最初C++で作っていましたが、冬休みにGo言語で書きなおしました。  
 ````
-(執筆及び最終更新:2015/1/4 作者:tSU-RooT ,<tsu.root@gmail.com>)  
+(執筆及び最終更新:2015/1/5 作者:tSU-RooT ,<tsu.root@gmail.com>)  
 ````  
-twatchmc(Golang) version:0.1beta(2015/1/4)
+twatchmc(Golang) version:0.12beta(2015/1/5)  
 ## コンパイルについて  
-Go言語のビルド環境は前提です、これはOSによって異なります。  
+Go言語のビルド環境は前提です、導入方法はOSによって異なります。  
 src/twatchmc/key.go にTwitterクライアントのコンシューマーキーとシークレットキーを入れてください。  
 その後コンソールから
 ````
@@ -40,7 +40,8 @@ $ go get github.com/ChimeraCoder/anaconda
 MINECRAFT_JAR_FILE=minecraft_server_1.7.9.jar
 ````  
 またDETECTIONという項目を設定することができます、  
-このアプリケーションは通常バニラでは出力からサーバが起動したことを検知しそこからログのwatchを行いますが、MODサーバではMODが様々なログを出力するためうまく動きません。  
+このアプリケーションは通常MODが入っていない状態では出力からサーバが起動したことを検知しそこからログのwatchを行いますが、
+MODサーバではMODが様々なログを出力するためうまく動きません。  
 このためDETECTIONに正規表現を書いておくとそちらを代わりに使用します。  
 推奨としては  
 ````

@@ -39,6 +39,7 @@ type PlayerData struct {
 	DeathCount   int     // 死亡数
 	KillCount    int     // Kill数(これはPvPをカウントする仕様とする)
 	DeathHistory []Death // 死亡履歴
+	KilledTable  map[string]int // Killしたプレイヤーとその回数の対応付け
 }
 
 // 死亡回数を増やす、この時 通知イベントの発生を検査する

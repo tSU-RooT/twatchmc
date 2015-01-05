@@ -49,7 +49,7 @@ func main() {
 	var jar_file_name = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
 	flag.Parse()
 	if *ver {
-		fmt.Println("twatchmc(Golang) version:0.1beta(2015/1/4)")
+		fmt.Println("twatchmc(Golang) version:0.12beta(2015/1/4)")
 		return
 	}
 	// Set Client Keys
@@ -190,7 +190,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 				sync_pd.Lock()
 				_, ok := player_data[name]
 				if ok == false {
-					player_data[name] = &PlayerData{Name: name, DeathCount: 0, KillCount: 0, DeathHistory: make([]Death, 0)}
+					player_data[name] = &PlayerData{Name: name, DeathCount: 0, KillCount: 0, DeathHistory: make([]Death, 0), KilledTable: make(map[string]int, 0)}
 				}
 				sync_pd.Unlock()
 				post_ch <- (name + "が入場しました(" + strconv.Itoa(player_count) + "人がオンライン)")
@@ -226,14 +226,14 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 						mes = strings.Replace(mes, "$"+strconv.Itoa(i), s, -1)
 					}
 					name1 := submatch[1]
-					// post_chにメッセージを投げる
-					post_ch <- mes
 					death := Death{ID: c.ID, Type: c.Type, Timestamp: time.Now(), KilledBy: "", KilledByOtherPlayer: false}
 					sync_pd.Lock()
 					p1, ok := player_data[name1]
 					if ok {
 						// DeathCount, KillCountなどを更新する。
 						if c.Type == 0 || c.Type == 2 {
+							// post_chにメッセージを投げる
+							post_ch <- mes
 							if event, exist := p1.DeathCountUp(death); exist {
 								post_ch <- event
 							}
@@ -242,11 +242,24 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 							death.KilledBy = name2
 							p2, ok := player_data[name2]
 							death.KilledByOtherPlayer = ok
+							if ok {
+								if _, exist := p2.KilledTable[name1];exist {
+									p2.KilledTable[name1] += 1
+								} else {
+									p2.KilledTable[name1] = 1
+								}
+								// メッセージを付け加える
+								mes += "\n(" + name2 + " -> " + name1 + " " + strconv.Itoa(p2.KilledTable[name1]) + "回目)"
+							}
+							// post_chにメッセージを投げる
+							post_ch <- mes
 							if event, exist := p1.DeathCountUp(death); exist {
+								// イベントがあったらpost_chに投げる
 								post_ch <- event
 							}
 							if ok {
 								if event, exist := p2.KillCountUp(); exist {
+									// 同様にイベントがあったらpost_chに投げる
 									post_ch <- event
 								}
 							}
@@ -261,39 +274,39 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 }
 func setup_deathcauses() (result []DeathCause) {
 	result = make([]DeathCause, 45, 45)
-	result[0] = DeathCause{ID: 1, Pattern: regexp.MustCompile("^(.+) was slain by (.+)$"), Message: "$1は$2に殺害された！", Type: 1}
-	result[1] = DeathCause{ID: 1, Pattern: regexp.MustCompile("^(.+) was slain by (.+) using (.+)$"), Message: "$1は$2の$3で殺された。", Type: 1}
+	result[0] = DeathCause{ID: 1, Pattern: regexp.MustCompile("^(.+) was slain by (.+) using (.+)$"), Message: "$1は$2の$3で殺された。", Type: 1}
+	result[1] = DeathCause{ID: 1, Pattern: regexp.MustCompile("^(.+) was slain by (.+)$"), Message: "$1は$2に殺害された！", Type: 1}
 	result[2] = DeathCause{ID: 2, Pattern: regexp.MustCompile("^(.+) was fireballed by (.+)$"), Message: "$1は$2に火だるまにされてしまった。", Type: 1}
 	result[3] = DeathCause{ID: 3, Pattern: regexp.MustCompile("^(.+) was killed by (.+) using magic$"), Message: "$1は$2に魔法で殺された。", Type: 1}
 	result[4] = DeathCause{ID: 4, Pattern: regexp.MustCompile("^(.+) got finished off by (.+) using (.+)$"), Message: "$1は$2の$3で殺害された！！", Type: 1}
-	result[5] = DeathCause{ID: 4, Pattern: regexp.MustCompile("^(.+) was slain by (.+) using (.+)$"), Message: "$1は$2の$3で殺害された！！", Type: 1}
-	result[6] = DeathCause{ID: 5, Pattern: regexp.MustCompile("^(.+) was pummeled by (.+)$"), Message: "$1は$2によってぺしゃんこにされた！", Type: 1}
-	result[7] = DeathCause{ID: 6, Pattern: regexp.MustCompile("^(.+) was shot by arrow$"), Message: "$1は矢に射抜かれてしんでしまった！", Type: 0}
+	result[5] = DeathCause{ID: 5, Pattern: regexp.MustCompile("^(.+) was pummeled by (.+)$"), Message: "$1は$2によってぺしゃんこにされた！", Type: 1}
+	result[6] = DeathCause{ID: 6, Pattern: regexp.MustCompile("^(.+) was shot by arrow$"), Message: "$1は矢に射抜かれてしんでしまった！", Type: 0}
+	result[7] = DeathCause{ID: 6, Pattern: regexp.MustCompile("^(.+) was shot by (.+) using (.+)$"), Message: "$1は$2の$3に射抜かれた！！", Type: 1}
 	result[8] = DeathCause{ID: 6, Pattern: regexp.MustCompile("^(.+) was shot by (.+)$"), Message: "$1は$2に射抜かれた！", Type: 1}
-	result[9] = DeathCause{ID: 6, Pattern: regexp.MustCompile("^(.+) was shot by (.+) using (.+)$"), Message: "$1は$2の$3に射抜かれた！！", Type: 1}
-	result[10] = DeathCause{ID: 7, Pattern: regexp.MustCompile("^(.+) drowned$"), Message: "$1は溺れしんでしまった！", Type: 0}
-	result[11] = DeathCause{ID: 7, Pattern: regexp.MustCompile("^(.+) drowned whilst trying to escape (.+)$"), Message: "$1は$2から逃れようとして溺れ死んでしまった。", Type: 1}
-	result[12] = DeathCause{ID: 8, Pattern: regexp.MustCompile("^(.+) fell out of the world$"), Message: "$1は奈落の底へ落ちてしまった！！！！", Type: 0}
-	result[13] = DeathCause{ID: 8, Pattern: regexp.MustCompile("^(.+) fell from a high place and fell out of the world$"), Message: "$1は奈落の底へ落ちてしまった！！！！", Type: 0}
-	result[14] = DeathCause{ID: 8, Pattern: regexp.MustCompile("^(.+) was knocked into the void by (.+)$"), Message: "$1は$2に奈落へ落とされた。", Type: 1}
-	result[15] = DeathCause{ID: 9, Pattern: regexp.MustCompile("^(.+) fell from a high place$"), Message: "$1は高い所から落ちた。", Type: 0}
-	result[16] = DeathCause{ID: 10, Pattern: regexp.MustCompile("^(.+) hit the ground too hard$"), Message: "$1は地面と強く激突してしまった。", Type: 2}
-	result[17] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell off a ladder$"), Message: "$1はツタから滑り落ちた……", Type: 2}
-	result[18] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell off some vines$"), Message: "$1は梯子から落ちた……", Type: 2}
-	result[19] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell out of the water$"), Message: "$1は水から落ちた。", Type: 2}
-	result[20] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell into a patch of fire$"), Message: "$1は火の海に落ちた。", Type: 0}
-	result[21] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell into a patch of cacti$"), Message: "$1はサボテンの上に落ちた！", Type: 2}
-	result[22] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) was doomed to fall by (.+)$"), Message: "$1は$2によって 命が尽きて落下した。", Type: 1}
-	result[23] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) was shot off some vines by (.+)$"), Message: "$1は$2によってツタから弾き落とされた。", Type: 1}
-	result[24] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) was shot off a ladder by (.+)$"), Message: "$1は$2によって梯子から弾き落とされた。", Type: 1}
-	result[25] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) was blown from a high place by (.+)$"), Message: "$1は$2によって高所から弾き落とされた。", Type: 1}
-	result[26] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) went up in flames$"), Message: "$1は炎に巻かれてしまった！", Type: 0}
-	result[27] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) walked into a fire whilst fighting (.+)$"), Message: "$1は$2と戦いながら火の中へ踏み入れてしまった！", Type: 1}
-	result[28] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) burned to death$"), Message: "$1はこんがりと焼けてしまった！！！", Type: 0}
-	result[29] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) walked into a fire whilst fighting (.+)$"), Message: "$1は$2と戦いながらカリカリに焼けてしまった。", Type: 1}
-	result[30] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) was burnt to a crisp whilst fighting (.+)$"), Message: "$1は$2と戦いながらカリカリに焼けてしまった。", Type: 1}
-	result[31] = DeathCause{ID: 13, Pattern: regexp.MustCompile("^(.+) tried to swim in lava$"), Message: "$1は溶岩遊泳を試みた。", Type: 0}
-	result[32] = DeathCause{ID: 13, Pattern: regexp.MustCompile("^(.+) tried to swim in lava while trying to escape (.+)$"), Message: "$1は$2から逃れようと溶岩遊泳を試みた。", Type: 1}
+	result[9] = DeathCause{ID: 7, Pattern: regexp.MustCompile("^(.+) drowned$"), Message: "$1は溺れしんでしまった！", Type: 0}
+	result[10] = DeathCause{ID: 7, Pattern: regexp.MustCompile("^(.+) drowned whilst trying to escape (.+)$"), Message: "$1は$2から逃れようとして溺れ死んでしまった。", Type: 1}
+	result[11] = DeathCause{ID: 8, Pattern: regexp.MustCompile("^(.+) fell out of the world$"), Message: "$1は奈落の底へ落ちてしまった！！！！", Type: 0}
+	result[12] = DeathCause{ID: 8, Pattern: regexp.MustCompile("^(.+) fell from a high place and fell out of the world$"), Message: "$1は奈落の底へ落ちてしまった！！！！", Type: 0}
+	result[13] = DeathCause{ID: 8, Pattern: regexp.MustCompile("^(.+) was knocked into the void by (.+)$"), Message: "$1は$2に奈落へ落とされた。", Type: 1}
+	result[14] = DeathCause{ID: 9, Pattern: regexp.MustCompile("^(.+) fell from a high place$"), Message: "$1は高い所から落ちた。", Type: 0}
+	result[15] = DeathCause{ID: 10, Pattern: regexp.MustCompile("^(.+) hit the ground too hard$"), Message: "$1は地面と強く激突してしまった。", Type: 2}
+	result[16] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell off a ladder$"), Message: "$1はツタから滑り落ちた……", Type: 2}
+	result[17] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell off some vines$"), Message: "$1は梯子から落ちた……", Type: 2}
+	result[18] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell out of the water$"), Message: "$1は水から落ちた。", Type: 2}
+	result[19] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell into a patch of fire$"), Message: "$1は火の海に落ちた。", Type: 0}
+	result[20] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) fell into a patch of cacti$"), Message: "$1はサボテンの上に落ちた！", Type: 2}
+	result[21] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) was doomed to fall by (.+)$"), Message: "$1は$2によって 命が尽きて落下した。", Type: 1}
+	result[22] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) was shot off some vines by (.+)$"), Message: "$1は$2によってツタから弾き落とされた。", Type: 1}
+	result[23] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) was shot off a ladder by (.+)$"), Message: "$1は$2によって梯子から弾き落とされた。", Type: 1}
+	result[24] = DeathCause{ID: 11, Pattern: regexp.MustCompile("^(.+) was blown from a high place by (.+)$"), Message: "$1は$2によって高所から弾き落とされた。", Type: 1}
+	result[25] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) went up in flames$"), Message: "$1は炎に巻かれてしまった！", Type: 0}
+	result[26] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) walked into a fire whilst fighting (.+)$"), Message: "$1は$2と戦いながら火の中へ踏み入れてしまった！", Type: 1}
+	result[27] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) burned to death$"), Message: "$1はこんがりと焼けてしまった！！！", Type: 0}
+	result[28] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) walked into a fire whilst fighting (.+)$"), Message: "$1は$2と戦いながらカリカリに焼けてしまった。", Type: 1}
+	result[29] = DeathCause{ID: 12, Pattern: regexp.MustCompile("^(.+) was burnt to a crisp whilst fighting (.+)$"), Message: "$1は$2と戦いながらカリカリに焼けてしまった。", Type: 1}
+	result[30] = DeathCause{ID: 13, Pattern: regexp.MustCompile("^(.+) tried to swim in lava$"), Message: "$1は溶岩遊泳を試みた。", Type: 0}
+	result[31] = DeathCause{ID: 13, Pattern: regexp.MustCompile("^(.+) tried to swim in lava while trying to escape (.+)$"), Message: "$1は$2から逃れようと溶岩遊泳を試みた。", Type: 1}
+	result[32] = DeathCause{ID: 13, Pattern: regexp.MustCompile("^(.+) tried to swim in lava to escape (.+)$"), Message: "$1は$2から逃れようと溶岩遊泳を試みた。", Type: 1}
 	result[33] = DeathCause{ID: 14, Pattern: regexp.MustCompile("^(.+) starved to death$"), Message: "$1はお腹がすいて飢え死にしてしまった！", Type: 0}
 	result[34] = DeathCause{ID: 15, Pattern: regexp.MustCompile("^(.+) was killed by magic$"), Message: "$1は魔法で殺された。", Type: 0}
 	result[35] = DeathCause{ID: 16, Pattern: regexp.MustCompile("^(.+) was blown up by (.+)$"), Message: "$1は$2に爆破されてしまった！", Type: 1}
