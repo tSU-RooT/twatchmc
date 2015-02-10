@@ -170,6 +170,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 	player_speak := regexp.MustCompile("^<(.+)> (.+)$")
 	player_in := regexp.MustCompile("^(.+) joined the game$")
 	player_out := regexp.MustCompile("^(.+) left the game$")
+	ban_player := regexp.MustCompile("^Banned player (.+)$")
 	var str string
 	var submatch []string
 	player_count := 0
@@ -229,6 +230,12 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 				serialize_playerdata()
 				fmt.Println("PlayerData DUMPED")
 			}
+		} else if ban_player.MatchString(str) {
+			// プレイヤーのBAN
+			submatch = ban_player.FindStringSubmatch(str)
+			// プレイヤーネームを取得
+			name := submatch[1]
+			post_ch <- (name + "がサーバーからBANされました。")
 		} else {
 			// ログイン、ログアウト、ゲーム内チャット以外の場合の処理
 			// 正規表現で順に探す
