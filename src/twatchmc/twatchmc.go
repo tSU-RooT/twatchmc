@@ -382,7 +382,8 @@ func deserialize_playerdata() {
 		return
 	}
 	for _, v := range deserialize_slice {
-		player_data[v.Name] = &v
+		nv := v
+		player_data[v.Name] = &nv
 	}
 }
 
