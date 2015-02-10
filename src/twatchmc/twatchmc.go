@@ -42,14 +42,21 @@ import (
 var Config map[string]string = make(map[string]string)
 var player_data map[string]*PlayerData
 var sync_pd *sync.Mutex = new(sync.Mutex)
-
+var Mute bool = false
 func main() {
-	var ver = flag.Bool("v", false, "Show twatchmc(Golang) version")
+	var ver = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
+	var lic = flag.Bool("l", false, "Show FLOSS Licenses")
 	var auth = flag.Bool("a", false, "Authorization(Twitter Account)")
 	var jar_file_name = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
 	flag.Parse()
 	if *ver {
-		fmt.Println("twatchmc(Golang) version:0.12beta(2015/1/4)")
+		fmt.Println("twatchmc(Golang) version:0.13beta(2015/2/10) Copyright tSU-RooT")
+		fmt.Println("twatchmc is free software licensed under the MIT license.")
+		fmt.Println("You can get source code from https://github.com/tSU-RooT/twatchmc_go")
+		return
+	}
+	if *lic {
+		show_licenses()
 		return
 	}
 	// Set Client Keys
@@ -160,7 +167,7 @@ func read_config() {
 }
 func analyze_process(in_ch chan string, post_ch chan string) {
 	causes := setup_deathcauses()
-	player_speak := regexp.MustCompile("^<.+>(.+)$")
+	player_speak := regexp.MustCompile("^<(.+)> (.+)$")
 	player_in := regexp.MustCompile("^(.+) joined the game$")
 	player_out := regexp.MustCompile("^(.+) left the game$")
 	var str string
@@ -209,7 +216,16 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 				}
 			}
 		} else if player_speak.MatchString(str) {
-			// 保留
+			// プレイヤーの発言内容を検査
+			submatch = player_speak.FindStringSubmatch(str)
+			con := submatch[2]
+			if (con == "MUTE") {
+				Mute = true
+				fmt.Println("twatchmc is Muted by Player")
+			} else if (con == "UNMUTE") {
+				Mute = false
+				fmt.Println("twatchmc is unMuted by Player")
+			}
 		} else {
 			// ログイン、ログアウト、ゲーム内チャット以外の場合の処理
 			// 正規表現で順に探す
@@ -371,11 +387,15 @@ func post_process(ch chan string, client *anaconda.TwitterApi) {
 	var str string
 	for {
 		str = <-ch
-		_, err := client.PostTweet(str, nil)
-		if err != nil {
-			log.Println("Post Failed!:" + str)
+		if !Mute{
+			_, err := client.PostTweet(str, nil)
+			if err != nil {
+				fmt.Println("Post Failed!:" + str)
+			} else {
+				fmt.Println("Posted:" + str)
+			}
 		} else {
-			log.Println("Posted:" + str)
+			fmt.Println("Mute:" + str)
 		}
 	}
 }
