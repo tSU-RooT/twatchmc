@@ -225,6 +225,9 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 			} else if (con == "UNMUTE") {
 				Mute = false
 				fmt.Println("twatchmc is unMuted by Player")
+			} else if (con == "DUMP") {
+				serialize_playerdata()
+				fmt.Println("PlayerData DUMPED")
 			}
 		} else {
 			// ログイン、ログアウト、ゲーム内チャット以外の場合の処理
