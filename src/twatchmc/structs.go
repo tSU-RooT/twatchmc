@@ -35,10 +35,10 @@ type DeathCause struct {
 	Message string // "$1は$2に爆破された" のように記述する。
 }
 type PlayerData struct {
-	Name         string  // プレイヤーネーム
-	DeathCount   int     // 死亡数
-	KillCount    int     // Kill数(これはPvPをカウントする仕様とする)
-	DeathHistory []Death // 死亡履歴
+	Name         string         // プレイヤーネーム
+	DeathCount   int            // 死亡数
+	KillCount    int            // Kill数(これはPvPをカウントする仕様とする)
+	DeathHistory []Death        // 死亡履歴
 	KilledTable  map[string]int // Killしたプレイヤーとその回数の対応付け
 }
 
@@ -89,4 +89,20 @@ type Death struct {
 	Timestamp           time.Time // 死亡時の
 	KilledBy            string    // 何によって死亡させられたか(Mob名またはプレイヤー名)
 	KilledByOtherPlayer bool      // 他プレイヤーからの攻撃で死亡した場合
+}
+type PlayerDwellTime struct {
+	Name      string
+	TotalTime time.Duration
+	LastLogin time.Time
+}
+
+func SortFunc(l int, lessFunc func(i, j int) bool, swapFunc func(i, j int)) error {
+	for n := 0; n < l-1; n++ {
+		for m := l - 1; m > n; m-- {
+			if !lessFunc(m-1, m) {
+				swapFunc(m-1, m)
+			}
+		}
+	}
+	return nil
 }

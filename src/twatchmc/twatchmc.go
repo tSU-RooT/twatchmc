@@ -42,6 +42,8 @@ import (
 var Config map[string]string = make(map[string]string)
 var player_data map[string]*PlayerData
 var sync_pd *sync.Mutex = new(sync.Mutex)
+var dwell_time map[string]*PlayerDwellTime
+var sync_dt *sync.Mutex = new(sync.Mutex)
 var Mute bool = false
 func main() {
 	var ver = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
@@ -50,7 +52,7 @@ func main() {
 	var jar_file_name = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
 	flag.Parse()
 	if *ver {
-		fmt.Println("twatchmc(Golang) version:0.14beta(2015/2/11) Copyright tSU-RooT")
+		fmt.Println("twatchmc(Golang) version:0.141(testing)(2015/2/15) Copyright tSU-RooT")
 		fmt.Println("twatchmc is free software licensed under the MIT license.")
 		fmt.Println("You can get source code from https://github.com/tSU-RooT/twatchmc_go")
 		return
@@ -130,6 +132,9 @@ func main() {
 	info_ch := make(chan string, 10)
 	post_ch := make(chan string, 10)
 	go post_process(post_ch, client)
+	if (Config["SHOW_DWELLTIME"] == "true") {
+		go time_process(post_ch)
+	}
 	go analyze_process(info_ch, post_ch)
 	go func() {
 		// 15分ごとに保存する。
@@ -201,6 +206,14 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 					player_data[name] = &PlayerData{Name: name, DeathCount: 0, KillCount: 0, DeathHistory: make([]Death, 0), KilledTable: make(map[string]int, 0)}
 				}
 				sync_pd.Unlock()
+				sync_dt.Lock()
+				d, ok := dwell_time[name]
+				if ok {
+					d.LastLogin = time.Now()
+				} else {
+					dwell_time[name] = &PlayerDwellTime{Name: name, TotalTime:0, LastLogin:time.Now()}
+				}
+				sync_dt.Unlock()
 				post_ch <- (name + "が入場しました(" + strconv.Itoa(player_count) + "人がオンライン)")
 			}
 		} else if player_out.MatchString(str) {
@@ -213,6 +226,11 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 					player_count -= 1
 					// 削除する
 					player_namelist = append(player_namelist[:i], player_namelist[i+1:]...)
+					// 滞在時間の記録
+					sync_dt.Lock()
+					dwell_time[name].TotalTime += time.Now().Sub(dwell_time[name].LastLogin)
+					//dwell_time[name].LastLogin = nil
+					sync_dt.Unlock()
 					break
 				}
 			}
@@ -296,6 +314,52 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 				}
 			}
 		}
+	}
+}
+func time_process(post_ch chan string) {
+	past_time := time.Now()
+	for {
+		now := time.Now()
+		if (past_time.Day() != now.Day()) {
+			// 起動中に日付をまたいだとみなす
+			list := make([]PlayerDwellTime, 0, 5)
+			sync_dt.Lock()
+			var sum time.Duration = 0
+			for _, d := range dwell_time {
+				d.TotalTime += now.Sub(d.LastLogin)
+				d.LastLogin = now
+				list = append(list, *(d))
+				sum += d.TotalTime
+			}
+			// プレイヤーの総ログイン時間が2時間を超えているなら
+			if ((sum / time.Minute) >= 120) {
+				SortFunc(len(list),
+				func(i, j int) bool {return list[i].TotalTime < list[j].TotalTime},
+				func(i, j int)      {list[i], list[j] = list[j], list[i]},
+				)
+				// プレイヤーログイン時間の統計のお知らせをする
+				mes := fmt.Sprintf("%d年%d月%d日のログイン時間\n",
+													 past_time.Year(), past_time.Month(), past_time.Day())
+				for i := len(list) - 1;i>=0;i-- {
+					if ((list[i].TotalTime / time.Minute) <= 40) {
+						// 40分以下ならスキップ
+						continue
+					}
+					h := list[i].TotalTime / time.Hour
+					m := (list[i].TotalTime % time.Hour) / time.Minute
+					t := fmt.Sprintf("%s %d:%d\n", list[i].Name, h, m)
+					if (len(mes) + len(t) <= 140) {
+						mes += t
+					} else {
+						break
+					}
+				}
+				post_ch <- mes
+			}
+			sync_dt.Unlock()
+		}
+		past_time = time.Now()
+		time.Sleep(time.Minute * 10)
 	}
 }
 func setup_deathcauses() (result []DeathCause) {
