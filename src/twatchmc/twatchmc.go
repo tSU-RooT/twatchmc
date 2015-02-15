@@ -42,7 +42,7 @@ import (
 var Config map[string]string = make(map[string]string)
 var player_data map[string]*PlayerData
 var sync_pd *sync.Mutex = new(sync.Mutex)
-var dwell_time map[string]*PlayerDwellTime
+var dwell_time map[string]*PlayerDwellTime = make(map[string]*PlayerDwellTime, 0)
 var sync_dt *sync.Mutex = new(sync.Mutex)
 var Mute bool = false
 func main() {
@@ -330,6 +330,7 @@ func time_process(post_ch chan string) {
 				d.LastLogin = now
 				list = append(list, *(d))
 				sum += d.TotalTime
+				d.TotalTime = 0
 			}
 			// プレイヤーの総ログイン時間が2時間を超えているなら
 			if ((sum / time.Minute) >= 120) {
