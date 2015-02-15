@@ -363,7 +363,7 @@ func time_process(post_ch chan string) {
 			sync_dt.Unlock()
 		}
 		past_time = time.Now()
-		time.Sleep(time.Minute * 10)
+		time.Sleep(time.Minute)
 	}
 }
 func setup_deathcauses() (result []DeathCause) {
