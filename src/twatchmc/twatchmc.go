@@ -52,7 +52,7 @@ func main() {
 	var jar_file_name = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
 	flag.Parse()
 	if *ver {
-		fmt.Println("twatchmc(Golang) version:0.141(testing)(2015/2/15) Copyright tSU-RooT")
+		fmt.Println("twatchmc(Golang) version:0.142(testing)(2015/2/16) Copyright tSU-RooT")
 		fmt.Println("twatchmc is free software licensed under the MIT license.")
 		fmt.Println("You can get source code from https://github.com/tSU-RooT/twatchmc_go")
 		return
@@ -229,7 +229,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 					// 滞在時間の記録
 					sync_dt.Lock()
 					dwell_time[name].TotalTime += time.Now().Sub(dwell_time[name].LastLogin)
-					//dwell_time[name].LastLogin = nil
+					dwell_time[name].LastLogin = time.Time{} // ログアウト中はゼロ時にセット
 					sync_dt.Unlock()
 					break
 				}
@@ -326,8 +326,11 @@ func time_process(post_ch chan string) {
 			sync_dt.Lock()
 			var sum time.Duration = 0
 			for _, d := range dwell_time {
-				d.TotalTime += now.Sub(d.LastLogin)
-				d.LastLogin = now
+				if !d.LastLogin.IsZero() {
+					// プレイヤーがログイン中なら現在時刻までを加算、その後ログイン時刻を計算上現在にセットする
+					d.TotalTime += now.Sub(d.LastLogin)
+					d.LastLogin = now
+				}
 				list = append(list, *(d))
 				sum += d.TotalTime
 				d.TotalTime = 0
@@ -348,7 +351,7 @@ func time_process(post_ch chan string) {
 					}
 					h := list[i].TotalTime / time.Hour
 					m := (list[i].TotalTime % time.Hour) / time.Minute
-					t := fmt.Sprintf("%s %d:%d\n", list[i].Name, h, m)
+					t := fmt.Sprintf("%s %02d:%02d\n", list[i].Name, h, m)
 					if (len(mes) + len(t) <= 140) {
 						mes += t
 					} else {
