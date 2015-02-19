@@ -140,13 +140,13 @@ func main() {
 		// 15分ごとに保存する。
 		for {
 			time.Sleep(time.Minute * 15)
-			serialize_playerdata()
+			serialize_data()
 		}
 	}()
 	pipe_process(info_ch)
 	// 終了
 	client.Close()
-	serialize_playerdata()
+	serialize_data()
 	os.Exit(0)
 }
 func read_config() {
@@ -181,7 +181,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 	player_count := 0
 	player_namelist := make([]string, 0, 5)
 
-	deserialize_playerdata()
+	deserialize_data()
 	for {
 		str = <-in_ch
 		if player_in.MatchString(str) {
@@ -245,7 +245,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 				Mute = false
 				fmt.Println("twatchmc is unMuted by Player")
 			} else if (con == "DUMP") {
-				serialize_playerdata()
+				serialize_data()
 				fmt.Println("PlayerData DUMPED")
 			}
 		} else if ban_player.MatchString(str) {
@@ -412,7 +412,7 @@ func setup_deathcauses() (result []DeathCause) {
 
 	return
 }
-func serialize_playerdata() {
+func serialize_data() {
 	sync_pd.Lock()
 	defer sync_pd.Unlock()
 	serialize_slice := make([]PlayerData, 0)
@@ -437,7 +437,7 @@ func serialize_playerdata() {
 		fmt.Println(err)
 	}
 }
-func deserialize_playerdata() {
+func deserialize_data() {
 	sync_pd.Lock()
 	defer sync_pd.Unlock()
 	player_data = make(map[string]*PlayerData, 0)
