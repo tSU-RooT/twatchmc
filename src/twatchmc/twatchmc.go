@@ -345,10 +345,6 @@ func time_process(post_ch chan string) {
 				mes := fmt.Sprintf("%d年%d月%d日のログイン時間\n",
 													 past_time.Year(), past_time.Month(), past_time.Day())
 				for i := len(list) - 1;i>=0;i-- {
-					if ((list[i].TotalTime / time.Minute) <= 40) {
-						// 40分以下ならスキップ
-						continue
-					}
 					h := list[i].TotalTime / time.Hour
 					m := (list[i].TotalTime % time.Hour) / time.Minute
 					t := fmt.Sprintf("%s %02d:%02d\n", list[i].Name, h, m)
