@@ -95,6 +95,10 @@ type PlayerDwellTime struct {
 	TotalTime time.Duration
 	LastLogin time.Time
 }
+type DwellTimeData struct {
+	Timestamp     time.Time
+	Contents      []PlayerDwellTime
+}
 
 func SortFunc(l int, lessFunc func(i, j int) bool, swapFunc func(i, j int)) error {
 	for n := 0; n < l-1; n++ {

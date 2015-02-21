@@ -426,13 +426,29 @@ func serialize_data() {
 			return
 		}
 	}
-	file, err := os.Create(".twatchmc/player_data.json")
-	defer file.Close()
+	file1, err := os.Create(".twatchmc/player_data.json")
+	defer file1.Close()
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	err = json.NewEncoder(file).Encode(serialize_slice)
+	err = json.NewEncoder(file1).Encode(serialize_slice)
+	if err != nil {
+		fmt.Println(err)
+	}
+	sync_dt.Lock()
+	defer sync_dt.Unlock()
+	dtd := DwellTimeData{Timestamp:time.Now(), Contents:make([]PlayerDwellTime, 0, 5)}
+	for _, val_p := range dwell_time {
+		dtd.Contents = append(dtd.Contents, *(val_p))
+	}
+	file2, err := os.Create(".twatchmc/dwelltime.json")
+	defer file2.Close()
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	err = json.NewEncoder(file2).Encode(dtd)
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -442,12 +458,12 @@ func deserialize_data() {
 	defer sync_pd.Unlock()
 	player_data = make(map[string]*PlayerData, 0)
 	deserialize_slice := make([]PlayerData, 0)
-	file, err := os.Open(".twatchmc/player_data.json")
-	defer file.Close()
+	file1, err := os.Open(".twatchmc/player_data.json")
+	defer file1.Close()
 	if err != nil {
 		return
 	}
-	err = json.NewDecoder(file).Decode(&deserialize_slice)
+	err = json.NewDecoder(file1).Decode(&deserialize_slice)
 	if err != nil {
 		fmt.Println(err)
 		return
@@ -455,6 +471,26 @@ func deserialize_data() {
 	for _, v := range deserialize_slice {
 		nv := v
 		player_data[v.Name] = &nv
+	}
+	sync_dt.Lock()
+	defer sync_dt.Unlock()
+	var dtd DwellTimeData
+	file2, err := os.Open(".twatchmc/dwelltime.json")
+	defer file2.Close()
+	if err != nil {
+		return
+	}
+	err = json.NewDecoder(file2).Decode(&dtd)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	// 日付が同じなら
+	if now := time.Now();(now.Sub(dtd.Timestamp) <= time.Hour * 24) && now.Day() == dtd.Timestamp.Day() {
+		for _, v := range dtd.Contents {
+			nv := v
+			dwell_time[v.Name] = &nv
+		}
 	}
 }
 
