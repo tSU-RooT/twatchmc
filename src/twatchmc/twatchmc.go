@@ -267,7 +267,9 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 						if i == 0 {
 							continue
 						}
-						s = strings.Trim(s, " ")
+						// 前後の空白文字や"〜.name" , "entity.〜"などのプロパティにかかわる物があった場合トリミングする(For Mods)
+						ss := strings.Split(strings.TrimRight(strings.Trim(s, " "), ".name"), ".")
+						s = ss[len(ss)-1]
 						mes = strings.Replace(mes, "$"+strconv.Itoa(i), s, -1)
 					}
 					name1 := submatch[1]
@@ -349,7 +351,7 @@ func time_process(post_ch chan string) {
 					h := list[i].TotalTime / time.Hour
 					m := (list[i].TotalTime % time.Hour) / time.Minute
 					t := fmt.Sprintf("%s %02d:%02d\n", list[i].Name, h, m)
-					if (len(mes) + len(t) <= 140) {
+					if (len(mes) + len(t) <= 140 && list[i].TotalTime > 0) {
 						mes += t
 					} else {
 						break
@@ -440,7 +442,12 @@ func serialize_data() {
 	sync_dt.Lock()
 	defer sync_dt.Unlock()
 	dtd := DwellTimeData{Timestamp:time.Now(), Contents:make([]PlayerDwellTime, 0, 5)}
+	now := time.Now()
 	for _, val_p := range dwell_time {
+		if !val_p.LastLogin.IsZero() {
+			val_p.TotalTime += now.Sub(val_p.LastLogin)
+			val_p.LastLogin = now // 保存のたびに現在時刻にセット
+		}
 		dtd.Contents = append(dtd.Contents, *(val_p))
 	}
 	file2, err := os.Create(".twatchmc/dwelltime.json")
