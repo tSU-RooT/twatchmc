@@ -267,6 +267,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 						if i == 0 {
 							continue
 						}
+						s = strings.Trim(s, " ")
 						mes = strings.Replace(mes, "$"+strconv.Itoa(i), s, -1)
 					}
 					name1 := submatch[1]
