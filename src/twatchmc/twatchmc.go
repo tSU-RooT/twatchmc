@@ -405,12 +405,12 @@ func setup_deathcauses() (result []DeathCause) {
 	result[35] = DeathCause{ID: 16, Pattern: regexp.MustCompile("^(.+) was blown up by (.+)$"), Message: "$1は$2に爆破されてしまった！", Type: 1}
 	result[36] = DeathCause{ID: 16, Pattern: regexp.MustCompile("^(.+) blew up$"), Message: "$1は爆発に巻き込まれてしまった！", Type: 0}
 	result[37] = DeathCause{ID: 17, Pattern: regexp.MustCompile("^(.+) suffocated in a wall$"), Message: "＊$1は壁の中で窒息してしまった＊", Type: 2}
-	result[38] = DeathCause{ID: 18, Pattern: regexp.MustCompile("^(.+) died$"), Message: "$1は/killコマンドで死んだ。", Type: 2}
+	result[38] = DeathCause{ID: 18, Pattern: regexp.MustCompile("^(.+) died$"), Message: "$1は死んだ。", Type: 2}
 	result[39] = DeathCause{ID: 19, Pattern: regexp.MustCompile("^(.+) was squashed by a falling block$"), Message: "$1は落下してきたブロックに押しつぶされた。", Type: 2}
 	result[40] = DeathCause{ID: 20, Pattern: regexp.MustCompile("^(.+) was squashed by a falling anvil$"), Message: "$1は落下してきた金床におしつぶされた", Type: 2}
 	result[41] = DeathCause{ID: 21, Pattern: regexp.MustCompile("^(.+) was killed while trying to hurt (.+)$"), Message: "$1は$2を傷つけようとして殺されました！！", Type: 1}
 	result[42] = DeathCause{ID: 22, Pattern: regexp.MustCompile("^(.+) withered away$"), Message: "$1は枯れ果ててしまった。", Type: 2}
-	result[43] = DeathCause{ID: 23, Pattern: regexp.MustCompile("^(.+) was pricked to death$"), Message: "$1は刺されて死んでしまった", Type: 2}
+	result[43] = DeathCause{ID: 23, Pattern: regexp.MustCompile("^(.+) was pricked to death$"), Message: "$1はサボテンに刺されて死んでしまった", Type: 2}
 	result[44] = DeathCause{ID: 23, Pattern: regexp.MustCompile("^(.+) walked into a cactus whilst trying to escape (.+)$"), Message: "$1は$2から逃げようとしてサボテンにぶつかってしまった。", Type: 1}
 
 	return
