@@ -268,9 +268,9 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 							continue
 						}
 						// 前後の空白文字や"〜.name" , "entity.〜"などのプロパティにかかわる物があった場合トリミングする(For Mods)
-						ss := strings.Split(strings.TrimRight(strings.Trim(s, " "), ".name"), ".")
-						s = ss[len(ss)-1]
-						mes = strings.Replace(mes, "$"+strconv.Itoa(i), s, -1)
+						ss := strings.Split(strings.Replace(strings.Trim(s, " "), ".name", "", -1), ".")
+						submatch[i] = ss[len(ss)-1]
+						mes = strings.Replace(mes, "$"+strconv.Itoa(i), submatch[i], -1)
 					}
 					name1 := submatch[1]
 					death := Death{ID: c.ID, Type: c.Type, Timestamp: time.Now(), KilledBy: "", KilledByOtherPlayer: false}
