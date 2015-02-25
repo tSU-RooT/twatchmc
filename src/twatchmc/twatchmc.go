@@ -45,6 +45,7 @@ var sync_pd *sync.Mutex = new(sync.Mutex)
 var dwell_time map[string]*PlayerDwellTime = make(map[string]*PlayerDwellTime, 0)
 var sync_dt *sync.Mutex = new(sync.Mutex)
 var Mute bool = false
+
 func main() {
 	var ver = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
 	var lic = flag.Bool("l", false, "Show FLOSS Licenses")
@@ -132,7 +133,7 @@ func main() {
 	info_ch := make(chan string, 10)
 	post_ch := make(chan string, 10)
 	go post_process(post_ch, client)
-	if (Config["SHOW_DWELLTIME"] == "true") {
+	if Config["SHOW_DWELLTIME"] == "true" {
 		go time_process(post_ch)
 	}
 	go analyze_process(info_ch, post_ch)
@@ -211,7 +212,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 				if ok {
 					d.LastLogin = time.Now()
 				} else {
-					dwell_time[name] = &PlayerDwellTime{Name: name, TotalTime:0, LastLogin:time.Now()}
+					dwell_time[name] = &PlayerDwellTime{Name: name, TotalTime: 0, LastLogin: time.Now()}
 				}
 				sync_dt.Unlock()
 				post_ch <- (name + "が入場しました(" + strconv.Itoa(player_count) + "人がオンライン)")
@@ -238,13 +239,13 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 			// プレイヤーの発言内容を検査
 			submatch = player_speak.FindStringSubmatch(str)
 			con := submatch[2]
-			if (con == "MUTE") {
+			if con == "MUTE" {
 				Mute = true
 				fmt.Println("twatchmc is Muted by Player")
-			} else if (con == "UNMUTE") {
+			} else if con == "UNMUTE" {
 				Mute = false
 				fmt.Println("twatchmc is unMuted by Player")
-			} else if (con == "DUMP") {
+			} else if con == "DUMP" {
 				serialize_data()
 				fmt.Println("PlayerData DUMPED")
 			}
@@ -290,7 +291,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 							p2, ok := player_data[name2]
 							death.KilledByOtherPlayer = ok
 							if ok {
-								if _, exist := p2.KilledTable[name1];exist {
+								if _, exist := p2.KilledTable[name1]; exist {
 									p2.KilledTable[name1] += 1
 								} else {
 									p2.KilledTable[name1] = 1
@@ -323,7 +324,7 @@ func time_process(post_ch chan string) {
 	past_time := time.Now()
 	for {
 		now := time.Now()
-		if (past_time.Day() != now.Day()) {
+		if past_time.Day() != now.Day() {
 			// 起動中に日付をまたいだとみなす
 			list := make([]PlayerDwellTime, 0, 5)
 			sync_dt.Lock()
@@ -339,19 +340,19 @@ func time_process(post_ch chan string) {
 				d.TotalTime = 0
 			}
 			// プレイヤーの総ログイン時間が2時間を超えているなら
-			if ((sum / time.Minute) >= 120) {
+			if (sum / time.Minute) >= 120 {
 				SortFunc(len(list),
-				func(i, j int) bool {return list[i].TotalTime < list[j].TotalTime},
-				func(i, j int)      {list[i], list[j] = list[j], list[i]},
+					func(i, j int) bool { return list[i].TotalTime < list[j].TotalTime },
+					func(i, j int) { list[i], list[j] = list[j], list[i] },
 				)
 				// プレイヤーログイン時間の統計のお知らせをする
 				mes := fmt.Sprintf("%d年%d月%d日のログイン時間\n",
-													 past_time.Year(), past_time.Month(), past_time.Day())
-				for i := len(list) - 1;i>=0;i-- {
+					past_time.Year(), past_time.Month(), past_time.Day())
+				for i := len(list) - 1; i >= 0; i-- {
 					h := list[i].TotalTime / time.Hour
 					m := (list[i].TotalTime % time.Hour) / time.Minute
 					t := fmt.Sprintf("%s %02d:%02d\n", list[i].Name, h, m)
-					if (len(mes) + len(t) <= 140 && list[i].TotalTime > 0) {
+					if len(mes)+len(t) <= 140 && list[i].TotalTime > 0 {
 						mes += t
 					} else {
 						break
@@ -441,7 +442,7 @@ func serialize_data() {
 	}
 	sync_dt.Lock()
 	defer sync_dt.Unlock()
-	dtd := DwellTimeData{Timestamp:time.Now(), Contents:make([]PlayerDwellTime, 0, 5)}
+	dtd := DwellTimeData{Timestamp: time.Now(), Contents: make([]PlayerDwellTime, 0, 5)}
 	now := time.Now()
 	for _, val_p := range dwell_time {
 		if !val_p.LastLogin.IsZero() {
@@ -494,7 +495,7 @@ func deserialize_data() {
 		return
 	}
 	// 日付が同じなら
-	if now := time.Now();(now.Sub(dtd.Timestamp) <= time.Hour * 24) && now.Day() == dtd.Timestamp.Day() {
+	if now := time.Now(); (now.Sub(dtd.Timestamp) <= time.Hour*24) && now.Day() == dtd.Timestamp.Day() {
 		for _, v := range dtd.Contents {
 			nv := v
 			dwell_time[v.Name] = &nv
@@ -506,7 +507,7 @@ func post_process(ch chan string, client *anaconda.TwitterApi) {
 	var str string
 	for {
 		str = <-ch
-		if !Mute{
+		if !Mute {
 			_, err := client.PostTweet(str, nil)
 			if err != nil {
 				fmt.Println("Post Failed!:" + str)
