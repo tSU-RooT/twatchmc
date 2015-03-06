@@ -53,7 +53,7 @@ func main() {
 	var jar_file_name = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
 	flag.Parse()
 	if *ver {
-		fmt.Println("twatchmc(Golang) version:0.3(testing)(2015/2/24) Copyright tSU-RooT")
+		fmt.Println("twatchmc(Golang) version:0.4beta(2015/3/6) Copyright tSU-RooT")
 		fmt.Println("twatchmc is free software licensed under the MIT license.")
 		fmt.Println("You can get source code from https://github.com/tSU-RooT/twatchmc_go")
 		return

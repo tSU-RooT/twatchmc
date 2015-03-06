@@ -6,9 +6,9 @@ twatchmcはMinecraftのサーバログをTwitterに自動投稿するプログ�
 主に自分で使って楽しむために作りました。  
 最初C++で作っていましたが、冬休みにGo言語で書きなおしました。  
 ````
-(執筆及び最終更新:2015/1/5 作者:tSU-RooT ,<tsu.root@gmail.com>)  
+(執筆及び最終更新:2015/3/6 作者:tSU-RooT ,<tsu.root@gmail.com>)  
 ````  
-twatchmc(Golang) version:0.12beta(2015/1/5)  
+twatchmc(Golang) version:0.4beta(2015/3/6)  
 ## コンパイルについて  
 Go言語のビルド環境は前提です、導入方法はOSによって異なります。  
 src/twatchmc/key.go にTwitterクライアントのコンシューマーキーとシークレットキーを入れてください。  
@@ -53,5 +53,10 @@ DETECTION=.*Server thread/INFO.*There are 0/20 players online.*
 OPTION=-Xmx8129M -Xms8129M  
 というふうに書いて下さい。(例)
 
+さらに日ごとのプレイヤーのログイン時間を日付が切り替わった時にツイートするように設定できます、
+````
+SHOW_DWELLTIME=true
+````
+という風に設定してください。
 ## License  
 MIT License  
