@@ -11,10 +11,10 @@ twatchmcはMinecraftのサーバログをTwitterに自動投稿するプログ�
 twatchmc(Golang) version:0.4beta(2015/3/6)  
 ## コンパイルについて  
 Go言語のビルド環境は前提です、導入方法はOSによって異なります。  
-src/twatchmc/key.go にTwitterクライアントのコンシューマーキーとシークレットキーを入れてください。  
+key_sample.goを元にして Twitterクライアントのコンシューマーキーとシークレットキーを入れてください。  
 その後コンソールから
 ````
-$ go build ./src/twatchmc
+$ go build
 ````
 で実行ファイルが生成できます。  
 使用するライブラリの関係上、あらかじめ以下のライブラリのインストールが多分必要です。  
