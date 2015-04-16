@@ -39,21 +39,23 @@ import (
 )
 
 // Global Variable
-var Config map[string]string = make(map[string]string)
-var player_data map[string]*PlayerData
-var sync_pd *sync.Mutex = new(sync.Mutex)
-var dwell_time map[string]*PlayerDwellTime = make(map[string]*PlayerDwellTime, 0)
-var sync_dt *sync.Mutex = new(sync.Mutex)
-var Mute bool = false
+var (
+	Config        map[string]string = make(map[string]string)
+	player_data   map[string]*PlayerData
+	sync_pd       *sync.Mutex                 = new(sync.Mutex)
+	dwell_time    map[string]*PlayerDwellTime = make(map[string]*PlayerDwellTime, 0)
+	sync_dt       *sync.Mutex                 = new(sync.Mutex)
+	Mute          bool                        = false
+	ver                                       = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
+	lic                                       = flag.Bool("l", false, "Show FLOSS Licenses")
+	auth                                      = flag.Bool("a", false, "Authorization(Twitter Account)")
+	jar_file_name                             = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
+)
 
 func main() {
-	var ver = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
-	var lic = flag.Bool("l", false, "Show FLOSS Licenses")
-	var auth = flag.Bool("a", false, "Authorization(Twitter Account)")
-	var jar_file_name = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
 	flag.Parse()
 	if *ver {
-		fmt.Println("twatchmc(Golang) version:0.4beta(2015/3/6) Copyright tSU-RooT")
+		fmt.Println("twatchmc(Golang) version:0.5beta(2015/4/26) Copyright tSU-RooT")
 		fmt.Println("twatchmc is free software licensed under the MIT license.")
 		fmt.Println("You can get source code from https://github.com/tSU-RooT/twatchmc_go")
 		return
@@ -535,30 +537,15 @@ func pipe_process(ch chan string) {
 	} else {
 		cmd = exec.Command("java", "-jar", Config["MINECRAFT_JAR_FILE"], "nogui")
 	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 	outpipe, err := cmd.StdoutPipe()
 	if err != nil {
 		log.Fatal(err)
 	}
-	inpipe, err := cmd.StdinPipe()
-	if err != nil {
-		log.Fatal(err)
-	}
-	if err := cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
 	fmt.Println("twatchmc is starting process...")
 	scanner := bufio.NewScanner(outpipe)
-	// go watch stdInput
-	go func() {
-		reader := bufio.NewReader(os.Stdin)
-		for {
-			temp, _ := reader.ReadString('\n')
-			_, err = inpipe.Write([]byte(temp))
-			if err != nil {
-				fmt.Println(err)
-			}
-		}
-	}()
 	var reg1 *regexp.Regexp
 	if val, ok := Config["DETECTION"]; ok {
 		reg1, err = regexp.Compile(val)
@@ -578,7 +565,6 @@ func pipe_process(ch chan string) {
 	}
 	for scanner.Scan() {
 		line := scanner.Text()
-		fmt.Println(line)
 		if reg2.MatchString(line) {
 			submatch := reg2.FindStringSubmatch(line)
 			ch <- submatch[1]
