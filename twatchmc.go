@@ -28,7 +28,8 @@ import (
 	"flag"
 	"fmt"
 	"github.com/ChimeraCoder/anaconda"
-	"log"
+	"gopkg.in/yaml.v2"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"regexp"
@@ -40,22 +41,21 @@ import (
 
 // Global Variable
 var (
-	Config        map[string]string = make(map[string]string)
-	player_data   map[string]*PlayerData
-	sync_pd       *sync.Mutex                 = new(sync.Mutex)
-	dwell_time    map[string]*PlayerDwellTime = make(map[string]*PlayerDwellTime, 0)
-	sync_dt       *sync.Mutex                 = new(sync.Mutex)
-	Mute          bool                        = false
-	ver                                       = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
-	lic                                       = flag.Bool("l", false, "Show FLOSS Licenses")
-	auth                                      = flag.Bool("a", false, "Authorization(Twitter Account)")
-	jar_file_name                             = flag.String("jar", "minecraft_server.1.8.1.jar", "Set jar file(ex:minecraft_server.X.X.X.jar)")
+	config      Config
+	player_data map[string]*PlayerData
+	sync_pd     *sync.Mutex                 = new(sync.Mutex)
+	dwell_time  map[string]*PlayerDwellTime = make(map[string]*PlayerDwellTime, 0)
+	sync_dt     *sync.Mutex                 = new(sync.Mutex)
+	Mute        bool                        = false
+	ver                                     = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
+	lic                                     = flag.Bool("l", false, "Show FLOSS Licenses")
+	auth                                    = flag.Bool("a", false, "Authorization(Twitter Account)")
 )
 
 func main() {
 	flag.Parse()
 	if *ver {
-		fmt.Println("twatchmc(Golang) version:0.5beta(2015/4/26) Copyright tSU-RooT")
+		fmt.Println("twatchmc(Golang) version:0.6beta(2015/5/1) Copyright tSU-RooT")
 		fmt.Println("twatchmc is free software licensed under the MIT license.")
 		fmt.Println("You can get source code from https://github.com/tSU-RooT/twatchmc_go")
 		return
@@ -124,18 +124,19 @@ func main() {
 	file.Close()
 	// Set Client
 	client := anaconda.NewTwitterApi(oauth_token, oauth_token_secret)
-	// set config
-	Config["MINECRAFT_JAR_FILE"] = *jar_file_name // 一応現時点の最新(2015/1/4)
 	read_config()
-	if _, err = os.Stat(Config["MINECRAFT_JAR_FILE"]); err != nil {
-		fmt.Println(Config["MINECRAFT_JAR_FILE"], "が見つかりません。")
+	if config.MinecraftJarFileName == "" {
+		fmt.Println("twatchmc.yml に MINECRAFT_JAR_FILEを設定してください。")
+		return
+	} else if _, err = os.Stat(config.MinecraftJarFileName); err != nil {
+		fmt.Println(config.MinecraftJarFileName, "が見つかりません。")
 		return
 	}
 	// Pipe Process
 	info_ch := make(chan string, 10)
 	post_ch := make(chan string, 10)
 	go post_process(post_ch, client)
-	if Config["SHOW_DWELLTIME"] == "true" {
+	if config.DwellTime {
 		go time_process(post_ch)
 	}
 	go analyze_process(info_ch, post_ch)
@@ -153,25 +154,11 @@ func main() {
 	os.Exit(0)
 }
 func read_config() {
-	file, err := os.Open(".twatchmc_config")
+	buf, err := ioutil.ReadFile("twatchmc.yml")
 	if err != nil {
 		return
 	}
-	file_reader := bufio.NewReader(file)
-	parse_reg := regexp.MustCompile("^(.+)=(.+)")
-	for {
-		str, err := file_reader.ReadString('\n')
-		if err != nil {
-			return
-		}
-		if parse_reg.MatchString(str) {
-			submatch := parse_reg.FindStringSubmatch(str)
-			// 長さを検査しておく
-			if len(submatch) >= 3 {
-				Config[submatch[1]] = submatch[2]
-			}
-		}
-	}
+	err = yaml.Unmarshal(buf, &config)
 }
 func analyze_process(in_ch chan string, post_ch chan string) {
 	causes := setup_deathcauses()
@@ -523,32 +510,25 @@ func post_process(ch chan string, client *anaconda.TwitterApi) {
 }
 func pipe_process(ch chan string) {
 	var cmd *exec.Cmd
-	if _, ok := Config["OPTION"]; ok {
-		op := Config["OPTION"]
-		if strings.Contains(op, " ") {
-			cmd = exec.Command("java")
-			for _, v := range strings.Split(op, " ") {
-				cmd.Args = append(cmd.Args, v)
-			}
-			cmd.Args = append(cmd.Args, "-jar", Config["MINECRAFT_JAR_FILE"], "nogui")
-		} else {
-			cmd = exec.Command("java", op, "-jar", Config["MINECRAFT_JAR_FILE"], "nogui")
-		}
+	if config.Option != nil && len(config.Option) > 0 {
+		cmd = exec.Command("java")
+		cmd.Args = append(cmd.Args, config.Option...)
+		cmd.Args = append(cmd.Args, "-jar", config.MinecraftJarFileName, "nogui")
 	} else {
-		cmd = exec.Command("java", "-jar", Config["MINECRAFT_JAR_FILE"], "nogui")
+		cmd = exec.Command("java", "-jar", config.MinecraftJarFileName, "nogui")
 	}
-	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	cmd.Stdin = os.Stdin
 	outpipe, err := cmd.StdoutPipe()
-	if err != nil {
-		log.Fatal(err)
+	if err := cmd.Start(); err != nil {
+		fmt.Println(err)
+		os.Exit(1)
 	}
 	fmt.Println("twatchmc is starting process...")
 	scanner := bufio.NewScanner(outpipe)
 	var reg1 *regexp.Regexp
-	if val, ok := Config["DETECTION"]; ok {
-		reg1, err = regexp.Compile(val)
+	if config.Detection != "" {
+		reg1, err = regexp.Compile(config.Detection)
 		if err != nil {
 			reg1 = regexp.MustCompile("^.+Server thread/INFO.*For help, type .*$")
 		}
@@ -563,8 +543,12 @@ func pipe_process(ch chan string) {
 			break
 		}
 	}
+	if config.ServerName != "" {
+		ch <- config.ServerName + "が起動しました。"
+	}
 	for scanner.Scan() {
 		line := scanner.Text()
+		fmt.Println(line)
 		if reg2.MatchString(line) {
 			submatch := reg2.FindStringSubmatch(line)
 			ch <- submatch[1]

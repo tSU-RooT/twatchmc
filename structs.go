@@ -99,6 +99,13 @@ type DwellTimeData struct {
 	Timestamp time.Time
 	Contents  []PlayerDwellTime
 }
+type Config struct {
+	MinecraftJarFileName string   `yaml:"MINECRAFT_JAR_FILE"`
+	ServerName           string   `yaml:"SERVER_NAME"`
+	Option               []string `yaml:"OPTION"`
+	DwellTime            bool     `yaml:"SHOW_DWELLTIME"`
+	Detection            string   `yaml:"DETECTION"`
+}
 
 func SortFunc(l int, lessFunc func(i, j int) bool, swapFunc func(i, j int)) error {
 	for n := 0; n < l-1; n++ {
