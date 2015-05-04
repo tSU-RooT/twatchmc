@@ -55,7 +55,7 @@ var (
 func main() {
 	flag.Parse()
 	if *ver {
-		fmt.Println("twatchmc(Golang) version:0.6beta(2015/5/1) Copyright tSU-RooT")
+		fmt.Println("twatchmc(Golang) version:0.7beta(2015/5/4) Copyright tSU-RooT")
 		fmt.Println("twatchmc is free software licensed under the MIT license.")
 		fmt.Println("You can get source code from https://github.com/tSU-RooT/twatchmc_go")
 		return
