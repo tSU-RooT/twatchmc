@@ -42,9 +42,9 @@ import (
 // Global Variable
 var (
 	config     Config
-	playerData map[string]*PlayerData
+	playerData = make(map[string]*PlayerData)
 	syncPd     = new(sync.Mutex)
-	dwellTime  map[string]*PlayerDwellTime
+	dwellTime  = make(map[string]*PlayerDwellTime)
 	syncDt     = new(sync.Mutex)
 	mute       = false
 	ver        = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
