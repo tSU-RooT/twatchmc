@@ -3,10 +3,11 @@
 twatchmcはMinecraftのサーバログをTwitterに自動投稿するプログラムです。  
 主にプレイヤーの死亡時のログを自動的に投稿します。  
 いわゆるバニラ(MOD)が入っていない状態の主要な死因に対応しています。  
+![画面](https://raw.githubusercontent.com/wiki/tSU-RooT/twatchmc/images/record.gif)  
 ````
-(執筆及び最終更新:2015/5/2 作者:tSU-RooT ,<tsu.root@gmail.com>)  
+(執筆及び最終更新:2015/5/4 作者:tSU-RooT ,<tsu.root@gmail.com>)  
 ````  
-twatchmc(Golang) version:0.6beta(2015/5/2)　　  
+twatchmc(Golang) version:0.7beta(2015/5/3)　　  
 ## Install  
 ````
 $ go get github.com/tSU-RooT/twatchmc　　
