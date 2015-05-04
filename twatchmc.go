@@ -124,6 +124,7 @@ func main() {
 	file.Close()
 	// Set Client
 	client := anaconda.NewTwitterApi(oauthToken, oauthTokenSecret)
+	defer client.Close()
 	readConfig()
 	if config.MinecraftJarFileName == "" {
 		fmt.Println("twatchmc.yml に MINECRAFT_JAR_FILEを設定してください。")
@@ -149,16 +150,20 @@ func main() {
 	}()
 	pipeProcess(infoCh)
 	// 終了
-	client.Close()
 	serializeData()
 	os.Exit(0)
 }
 func readConfig() {
 	buf, err := ioutil.ReadFile("twatchmc.yml")
 	if err != nil {
-		return
+		fmt.Println(err)
+		os.Exit(0)
 	}
 	err = yaml.Unmarshal(buf, &config)
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(0)
+	}
 }
 func analyzeProcess(inCh chan string, postCh chan string) {
 	causes := setupDeathCauses()
@@ -476,6 +481,7 @@ func deserializeData() {
 	file2, err := os.Open(".twatchmc/dwelltime.json")
 	defer file2.Close()
 	if err != nil {
+		fmt.Println(err)
 		return
 	}
 	err = json.NewDecoder(file2).Decode(&dtd)
