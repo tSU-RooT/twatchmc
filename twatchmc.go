@@ -41,15 +41,15 @@ import (
 
 // Global Variable
 var (
-	config      Config
-	player_data map[string]*PlayerData
-	sync_pd     *sync.Mutex                 = new(sync.Mutex)
-	dwell_time  map[string]*PlayerDwellTime = make(map[string]*PlayerDwellTime, 0)
-	sync_dt     *sync.Mutex                 = new(sync.Mutex)
-	Mute        bool                        = false
-	ver                                     = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
-	lic                                     = flag.Bool("l", false, "Show FLOSS Licenses")
-	auth                                    = flag.Bool("a", false, "Authorization(Twitter Account)")
+	config     Config
+	playerData map[string]*PlayerData
+	syncPd     = new(sync.Mutex)
+	dwellTime  map[string]*PlayerDwellTime
+	syncDt     = new(sync.Mutex)
+	mute       = false
+	ver        = flag.Bool("v", false, "Show twatchmc(Golang) version and others")
+	lic        = flag.Bool("l", false, "Show FLOSS Licenses")
+	auth       = flag.Bool("a", false, "Authorization(Twitter Account)")
 )
 
 func main() {
@@ -61,12 +61,12 @@ func main() {
 		return
 	}
 	if *lic {
-		show_licenses()
+		showLicenses()
 		return
 	}
 	// Set Client Keys
-	anaconda.SetConsumerKey(COMSUMER_KEY)
-	anaconda.SetConsumerSecret(COMSUMER_SERCRET)
+	anaconda.SetConsumerKey(ComsumerKey)
+	anaconda.SetConsumerSecret(ComsumerSercret)
 	// Check key
 	home := os.Getenv("HOME")
 	var file *os.File
@@ -75,23 +75,23 @@ func main() {
 		file, err = os.Open(home + "/.twatchmc/.key")
 	}
 	if (*auth) || err != nil {
-		auth_url, tempCre, err := anaconda.AuthorizationURL("")
+		authURL, tempCre, err := anaconda.AuthorizationURL("")
 		if err != nil {
 			fmt.Println("URLが取得できませんでした。")
 			return
 		}
 		fmt.Println("認証を開始します。以下のURLにアクセスして認証した後、PINコードを入力してください。")
-		fmt.Println(auth_url)
-		stdin_reader := bufio.NewReader(os.Stdin)
-		str, _ := stdin_reader.ReadString('\n')
+		fmt.Println(authURL)
+		stdinReader := bufio.NewReader(os.Stdin)
+		str, _ := stdinReader.ReadString('\n')
 		str = strings.TrimRight(str, "\n")
 		_, values, err := anaconda.GetCredentials(tempCre, str)
 		if err != nil {
 			fmt.Println("認証に失敗しました。")
 			return
 		}
-		oauth_token := values.Get("oauth_token")
-		oauth_token_secret := values.Get("oauth_token_secret")
+		oauthToken := values.Get("oauth_token")
+		oauthTokenSecret := values.Get("oauth_token_secret")
 		// Save
 		if _, err = os.Stat(home + "/.twatchmc/"); err != nil {
 			err = os.Mkdir(home+"/.twatchmc/", 0700)
@@ -100,31 +100,31 @@ func main() {
 				return
 			}
 		}
-		new_file, err := os.Create(home + "/.twatchmc/.key")
+		newFile, err := os.Create(home + "/.twatchmc/.key")
 		if err != nil {
 			fmt.Println(home + "/.twatchmc/.key の作成に失敗しました。")
 			return
 		}
-		file_writer := bufio.NewWriter(new_file)
-		file_writer.WriteString(oauth_token + "\n")
-		file_writer.WriteString(oauth_token_secret + "\n")
-		file_writer.Flush()
+		fileWriter := bufio.NewWriter(newFile)
+		fileWriter.WriteString(oauthToken + "\n")
+		fileWriter.WriteString(oauthTokenSecret + "\n")
+		fileWriter.Flush()
 		fmt.Println("認証は終了しました。")
 		// End
-		new_file.Close()
+		newFile.Close()
 		return
 	}
-	file_reader := bufio.NewReader(file)
-	// Read oauth_token
+	fileReader := bufio.NewReader(file)
+	// Read oauthToken
 	var str string
-	str, _ = file_reader.ReadString('\n')
-	oauth_token := strings.TrimRight(str, "\n")
-	str, _ = file_reader.ReadString('\n')
-	oauth_token_secret := strings.TrimRight(str, "\n")
+	str, _ = fileReader.ReadString('\n')
+	oauthToken := strings.TrimRight(str, "\n")
+	str, _ = fileReader.ReadString('\n')
+	oauthTokenSecret := strings.TrimRight(str, "\n")
 	file.Close()
 	// Set Client
-	client := anaconda.NewTwitterApi(oauth_token, oauth_token_secret)
-	read_config()
+	client := anaconda.NewTwitterApi(oauthToken, oauthTokenSecret)
+	readConfig()
 	if config.MinecraftJarFileName == "" {
 		fmt.Println("twatchmc.yml に MINECRAFT_JAR_FILEを設定してください。")
 		return
@@ -133,117 +133,117 @@ func main() {
 		return
 	}
 	// Pipe Process
-	info_ch := make(chan string, 10)
-	post_ch := make(chan string, 10)
-	go post_process(post_ch, client)
+	infoCh := make(chan string, 10)
+	postCh := make(chan string, 10)
+	go postProcess(postCh, client)
 	if config.DwellTime {
-		go time_process(post_ch)
+		go timeProcess(postCh)
 	}
-	go analyze_process(info_ch, post_ch)
+	go analyzeProcess(infoCh, postCh)
 	go func() {
 		// 15分ごとに保存する。
 		for {
 			time.Sleep(time.Minute * 15)
-			serialize_data()
+			serializeData()
 		}
 	}()
-	pipe_process(info_ch)
+	pipeProcess(infoCh)
 	// 終了
 	client.Close()
-	serialize_data()
+	serializeData()
 	os.Exit(0)
 }
-func read_config() {
+func readConfig() {
 	buf, err := ioutil.ReadFile("twatchmc.yml")
 	if err != nil {
 		return
 	}
 	err = yaml.Unmarshal(buf, &config)
 }
-func analyze_process(in_ch chan string, post_ch chan string) {
-	causes := setup_deathcauses()
-	player_speak := regexp.MustCompile("^<(.+)> (.+)$")
-	player_in := regexp.MustCompile("^(.+) joined the game$")
-	player_out := regexp.MustCompile("^(.+) left the game$")
-	ban_player := regexp.MustCompile("^Banned player (.+)$")
+func analyzeProcess(inCh chan string, postCh chan string) {
+	causes := setupDeathCauses()
+	playerSpeak := regexp.MustCompile("^<(.+)> (.+)$")
+	playerIn := regexp.MustCompile("^(.+) joined the game$")
+	playerOut := regexp.MustCompile("^(.+) left the game$")
+	banPlayer := regexp.MustCompile("^Banned player (.+)$")
 	var str string
 	var submatch []string
-	player_count := 0
-	player_namelist := make([]string, 0, 5)
+	playerCount := 0
+	playerNameList := make([]string, 0, 5)
 
-	deserialize_data()
+	deserializeData()
 	for {
-		str = <-in_ch
-		if player_in.MatchString(str) {
-			submatch = player_in.FindStringSubmatch(str)
+		str = <-inCh
+		if playerIn.MatchString(str) {
+			submatch = playerIn.FindStringSubmatch(str)
 			// プレイヤーネームを取得
 			name := submatch[1]
 			// リストを検査する
-			already_login := false
-			for _, n := range player_namelist {
+			alreadyLogin := false
+			for _, n := range playerNameList {
 				if n == name {
 					// 二重ログインなのでスキップする
-					already_login = true
+					alreadyLogin = true
 				}
 			}
-			if already_login == false {
-				player_count += 1
-				player_namelist = append(player_namelist, name)
+			if alreadyLogin == false {
+				playerCount++
+				playerNameList = append(playerNameList, name)
 				// プレイヤーデータは共有資源なのでsync.Mutexでロックをかける
-				sync_pd.Lock()
-				_, ok := player_data[name]
+				syncPd.Lock()
+				_, ok := playerData[name]
 				if ok == false {
-					player_data[name] = &PlayerData{Name: name, DeathCount: 0, KillCount: 0, DeathHistory: make([]Death, 0), KilledTable: make(map[string]int, 0)}
+					playerData[name] = &PlayerData{Name: name, DeathCount: 0, KillCount: 0, DeathHistory: make([]Death, 0), KilledTable: make(map[string]int, 0)}
 				}
-				sync_pd.Unlock()
-				sync_dt.Lock()
-				d, ok := dwell_time[name]
+				syncPd.Unlock()
+				syncDt.Lock()
+				d, ok := dwellTime[name]
 				if ok {
 					d.LastLogin = time.Now()
 				} else {
-					dwell_time[name] = &PlayerDwellTime{Name: name, TotalTime: 0, LastLogin: time.Now()}
+					dwellTime[name] = &PlayerDwellTime{Name: name, TotalTime: 0, LastLogin: time.Now()}
 				}
-				sync_dt.Unlock()
-				post_ch <- (name + "が入場しました(" + strconv.Itoa(player_count) + "人がオンライン)")
+				syncDt.Unlock()
+				postCh <- (name + "が入場しました(" + strconv.Itoa(playerCount) + "人がオンライン)")
 			}
-		} else if player_out.MatchString(str) {
-			submatch = player_out.FindStringSubmatch(str)
+		} else if playerOut.MatchString(str) {
+			submatch = playerOut.FindStringSubmatch(str)
 			// プレイヤーネームを取得
 			name := submatch[1]
 			// リストを検査する
-			for i, n := range player_namelist {
+			for i, n := range playerNameList {
 				if n == name {
-					player_count -= 1
+					playerCount--
 					// 削除する
-					player_namelist = append(player_namelist[:i], player_namelist[i+1:]...)
+					playerNameList = append(playerNameList[:i], playerNameList[i+1:]...)
 					// 滞在時間の記録
-					sync_dt.Lock()
-					dwell_time[name].TotalTime += time.Now().Sub(dwell_time[name].LastLogin)
-					dwell_time[name].LastLogin = time.Time{} // ログアウト中はゼロ時にセット
-					sync_dt.Unlock()
+					syncDt.Lock()
+					dwellTime[name].TotalTime += time.Now().Sub(dwellTime[name].LastLogin)
+					dwellTime[name].LastLogin = time.Time{} // ログアウト中はゼロ時にセット
+					syncDt.Unlock()
 					break
 				}
 			}
-		} else if player_speak.MatchString(str) {
+		} else if playerSpeak.MatchString(str) {
 			// プレイヤーの発言内容を検査
-			submatch = player_speak.FindStringSubmatch(str)
+			submatch = playerSpeak.FindStringSubmatch(str)
 			con := submatch[2]
 			if con == "MUTE" {
-				Mute = true
+				mute = true
 				fmt.Println("twatchmc is Muted by Player")
 			} else if con == "UNMUTE" {
-				Mute = false
+				mute = false
 				fmt.Println("twatchmc is unMuted by Player")
 			} else if con == "DUMP" {
-				serialize_data()
+				serializeData()
 				fmt.Println("PlayerData DUMPED")
 			}
-		} else if ban_player.MatchString(str) {
+		} else if banPlayer.MatchString(str) {
 			// プレイヤーのBAN
-			submatch = ban_player.FindStringSubmatch(str)
+			submatch = banPlayer.FindStringSubmatch(str)
 			// プレイヤーネームを取得
 			name := submatch[1]
-			post_ch <- (name + "がサーバーからBANされました。")
+			postCh <- (name + "がサーバーからBANされました。")
 		} else {
 			// ログイン、ログアウト、ゲーム内チャット以外の場合の処理
 			// 正規表現で順に探す
@@ -251,7 +251,7 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 				if c.Pattern.MatchString(str) {
 					// プレイヤーの死亡と一致した場合
 					submatch = c.Pattern.FindStringSubmatch(str)
-					var mes string = c.Message
+					mes := c.Message
 					// $1, $2の置換
 					for i, s := range submatch {
 						if i == 0 {
@@ -264,61 +264,61 @@ func analyze_process(in_ch chan string, post_ch chan string) {
 					}
 					name1 := submatch[1]
 					death := Death{ID: c.ID, Type: c.Type, Timestamp: time.Now(), KilledBy: "", KilledByOtherPlayer: false}
-					sync_pd.Lock()
-					p1, ok := player_data[name1]
+					syncPd.Lock()
+					p1, ok := playerData[name1]
 					if ok {
 						// DeathCount, KillCountなどを更新する。
 						if c.Type == 0 || c.Type == 2 {
-							// post_chにメッセージを投げる
-							post_ch <- mes
+							// postChにメッセージを投げる
+							postCh <- mes
 							if event, exist := p1.DeathCountUp(death); exist {
-								post_ch <- event
+								postCh <- event
 							}
 						} else if c.Type == 1 && len(submatch) >= 3 {
 							name2 := submatch[2]
 							death.KilledBy = name2
-							p2, ok := player_data[name2]
+							p2, ok := playerData[name2]
 							death.KilledByOtherPlayer = ok
 							if ok {
 								if _, exist := p2.KilledTable[name1]; exist {
-									p2.KilledTable[name1] += 1
+									p2.KilledTable[name1]++
 								} else {
 									p2.KilledTable[name1] = 1
 								}
 								// メッセージを付け加える
 								mes += "\n(" + name2 + " -> " + name1 + " " + strconv.Itoa(p2.KilledTable[name1]) + "回目)"
 							}
-							// post_chにメッセージを投げる
-							post_ch <- mes
+							// postChにメッセージを投げる
+							postCh <- mes
 							if event, exist := p1.DeathCountUp(death); exist {
-								// イベントがあったらpost_chに投げる
-								post_ch <- event
+								// イベントがあったらpostChに投げる
+								postCh <- event
 							}
 							if ok {
 								if event, exist := p2.KillCountUp(); exist {
-									// 同様にイベントがあったらpost_chに投げる
-									post_ch <- event
+									// 同様にイベントがあったらpostChに投げる
+									postCh <- event
 								}
 							}
 						}
 					}
-					sync_pd.Unlock()
+					syncPd.Unlock()
 					break
 				}
 			}
 		}
 	}
 }
-func time_process(post_ch chan string) {
-	past_time := time.Now()
+func timeProcess(postCh chan string) {
+	pastTime := time.Now()
 	for {
 		now := time.Now()
-		if past_time.Day() != now.Day() {
+		if pastTime.Day() != now.Day() {
 			// 起動中に日付をまたいだとみなす
 			list := make([]PlayerDwellTime, 0, 5)
-			sync_dt.Lock()
-			var sum time.Duration = 0
-			for _, d := range dwell_time {
+			syncDt.Lock()
+			var sum time.Duration
+			for _, d := range dwellTime {
 				if !d.LastLogin.IsZero() {
 					// プレイヤーがログイン中なら現在時刻までを加算、その後ログイン時刻を計算上現在にセットする
 					d.TotalTime += now.Sub(d.LastLogin)
@@ -336,7 +336,7 @@ func time_process(post_ch chan string) {
 				)
 				// プレイヤーログイン時間の統計のお知らせをする
 				mes := fmt.Sprintf("%d年%d月%d日のログイン時間\n",
-					past_time.Year(), past_time.Month(), past_time.Day())
+					pastTime.Year(), pastTime.Month(), pastTime.Day())
 				for i := len(list) - 1; i >= 0; i-- {
 					h := list[i].TotalTime / time.Hour
 					m := (list[i].TotalTime % time.Hour) / time.Minute
@@ -347,15 +347,15 @@ func time_process(post_ch chan string) {
 						break
 					}
 				}
-				post_ch <- mes
+				postCh <- mes
 			}
-			sync_dt.Unlock()
+			syncDt.Unlock()
 		}
-		past_time = time.Now()
+		pastTime = time.Now()
 		time.Sleep(time.Minute)
 	}
 }
-func setup_deathcauses() (result []DeathCause) {
+func setupDeathCauses() (result []DeathCause) {
 	result = make([]DeathCause, 45, 45)
 	result[0] = DeathCause{ID: 1, Pattern: regexp.MustCompile("^(.+) was slain by (.+) using (.+)$"), Message: "$1は$2の$3で殺された。", Type: 1}
 	result[1] = DeathCause{ID: 1, Pattern: regexp.MustCompile("^(.+) was slain by (.+)$"), Message: "$1は$2に殺害された！", Type: 1}
@@ -405,12 +405,12 @@ func setup_deathcauses() (result []DeathCause) {
 
 	return
 }
-func serialize_data() {
-	sync_pd.Lock()
-	defer sync_pd.Unlock()
-	serialize_slice := make([]PlayerData, 0)
-	for _, val_p := range player_data {
-		serialize_slice = append(serialize_slice, *(val_p))
+func serializeData() {
+	syncPd.Lock()
+	defer syncPd.Unlock()
+	var serializeSlice []PlayerData
+	for _, val := range playerData {
+		serializeSlice = append(serializeSlice, *(val))
 	}
 	if _, err := os.Stat(".twatchmc/"); err != nil {
 		err = os.Mkdir(".twatchmc/", 0700)
@@ -425,20 +425,20 @@ func serialize_data() {
 		fmt.Println(err)
 		return
 	}
-	err = json.NewEncoder(file1).Encode(serialize_slice)
+	err = json.NewEncoder(file1).Encode(serializeSlice)
 	if err != nil {
 		fmt.Println(err)
 	}
-	sync_dt.Lock()
-	defer sync_dt.Unlock()
+	syncDt.Lock()
+	defer syncDt.Unlock()
 	dtd := DwellTimeData{Timestamp: time.Now(), Contents: make([]PlayerDwellTime, 0, 5)}
 	now := time.Now()
-	for _, val_p := range dwell_time {
-		if !val_p.LastLogin.IsZero() {
-			val_p.TotalTime += now.Sub(val_p.LastLogin)
-			val_p.LastLogin = now // 保存のたびに現在時刻にセット
+	for _, val := range dwellTime {
+		if !val.LastLogin.IsZero() {
+			val.TotalTime += now.Sub(val.LastLogin)
+			val.LastLogin = now // 保存のたびに現在時刻にセット
 		}
-		dtd.Contents = append(dtd.Contents, *(val_p))
+		dtd.Contents = append(dtd.Contents, *(val))
 	}
 	file2, err := os.Create(".twatchmc/dwelltime.json")
 	defer file2.Close()
@@ -451,27 +451,27 @@ func serialize_data() {
 		fmt.Println(err)
 	}
 }
-func deserialize_data() {
-	sync_pd.Lock()
-	defer sync_pd.Unlock()
-	player_data = make(map[string]*PlayerData, 0)
-	deserialize_slice := make([]PlayerData, 0)
+func deserializeData() {
+	syncPd.Lock()
+	defer syncPd.Unlock()
+	playerData = make(map[string]*PlayerData, 0)
+	var deserializeSlice []PlayerData
 	file1, err := os.Open(".twatchmc/player_data.json")
 	defer file1.Close()
 	if err != nil {
 		return
 	}
-	err = json.NewDecoder(file1).Decode(&deserialize_slice)
+	err = json.NewDecoder(file1).Decode(&deserializeSlice)
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	for _, v := range deserialize_slice {
+	for _, v := range deserializeSlice {
 		nv := v
-		player_data[v.Name] = &nv
+		playerData[v.Name] = &nv
 	}
-	sync_dt.Lock()
-	defer sync_dt.Unlock()
+	syncDt.Lock()
+	defer syncDt.Unlock()
 	var dtd DwellTimeData
 	file2, err := os.Open(".twatchmc/dwelltime.json")
 	defer file2.Close()
@@ -487,16 +487,16 @@ func deserialize_data() {
 	if now := time.Now(); (now.Sub(dtd.Timestamp) <= time.Hour*24) && now.Day() == dtd.Timestamp.Day() {
 		for _, v := range dtd.Contents {
 			nv := v
-			dwell_time[v.Name] = &nv
+			dwellTime[v.Name] = &nv
 		}
 	}
 }
 
-func post_process(ch chan string, client *anaconda.TwitterApi) {
+func postProcess(ch chan string, client *anaconda.TwitterApi) {
 	var str string
 	for {
 		str = <-ch
-		if !Mute {
+		if !mute {
 			_, err := client.PostTweet(str, nil)
 			if err != nil {
 				fmt.Println("Post Failed!:" + str)
@@ -508,7 +508,7 @@ func post_process(ch chan string, client *anaconda.TwitterApi) {
 		}
 	}
 }
-func pipe_process(ch chan string) {
+func pipeProcess(ch chan string) {
 	var cmd *exec.Cmd
 	if config.Option != nil && len(config.Option) > 0 {
 		cmd = exec.Command("java")

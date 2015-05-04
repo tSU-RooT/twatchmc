@@ -26,7 +26,7 @@ import (
 	"fmt"
 )
 
-func show_licenses() {
+func showLicenses() {
 	fmt.Println("FLOSS Licenses")
 	fmt.Println("----------------------------------------------------------------")
 	fmt.Println(allLicenseText)

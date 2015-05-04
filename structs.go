@@ -28,12 +28,15 @@ import (
 	"time"
 )
 
+// DeathCause :Minecraftにおける死因
 type DeathCause struct {
 	ID      int // ほぼ同一の死因なら正規表現のパターンか違ってもIDは同一とする(奈落落下など)
 	Type    int // (0:自然死,1:他殺,2:珍しい死因)
 	Pattern *regexp.Regexp
 	Message string // "$1は$2に爆破された" のように記述する。
 }
+
+// PlayerData :プレイヤーについて保持する情報
 type PlayerData struct {
 	Name         string         // プレイヤーネーム
 	DeathCount   int            // 死亡数
@@ -42,47 +45,48 @@ type PlayerData struct {
 	KilledTable  map[string]int // Killしたプレイヤーとその回数の対応付け
 }
 
-// 死亡回数を増やす、この時 通知イベントの発生を検査する
-func (this *PlayerData) DeathCountUp(d Death) (string, bool) {
-	this.DeathCount += 1
-	this.DeathHistory = append(this.DeathHistory, d)
+// DeathCountUp :死亡回数を増やす、この時 通知イベントの発生を検査する
+func (pd *PlayerData) DeathCountUp(d Death) (string, bool) {
+	pd.DeathCount++
+	pd.DeathHistory = append(pd.DeathHistory, d)
 	// 死因履歴を調べる
-	odd_count := 0
-	killed_count := 0
-	for _, v := range this.DeathHistory {
+	oddCount := 0
+	KilledCount := 0
+	for _, v := range pd.DeathHistory {
 		if v.Type == 2 {
-			odd_count += 1
+			oddCount++
 		} else if v.Type == 1 && v.KilledByOtherPlayer {
-			killed_count += 1
+			KilledCount++
 		}
 	}
 	if d.Type == 2 {
 		// 3回または10, 30, 50…の時に通知
-		if odd_count == 3 || (odd_count%20 == 10) {
-			return (this.Name + "は 通算" + strconv.Itoa(odd_count) + "回 珍しい死因で死亡した。"), true
+		if oddCount == 3 || (oddCount%20 == 10) {
+			return (pd.Name + "は 通算" + strconv.Itoa(oddCount) + "回 珍しい死因で死亡した。"), true
 		}
 	} else if d.Type == 1 {
 		// 7, 16回または10, 30, 50…の時に通知
-		if killed_count == 7 || killed_count == 16 || (killed_count%20 == 10) {
-			return (this.Name + "は 通算" + strconv.Itoa(killed_count) + "回 他のプレイヤーに殺された。"), true
+		if KilledCount == 7 || KilledCount == 16 || (KilledCount%20 == 10) {
+			return (pd.Name + "は 通算" + strconv.Itoa(KilledCount) + "回 他のプレイヤーに殺された。"), true
 		}
 	}
 	//通算死亡回数の検査
-	if this.DeathCount%20 == 10 || this.DeathCount == 16 || this.DeathCount == 64 {
-		return (this.Name + "は 通算" + strconv.Itoa(this.DeathCount) + "回 死亡した。"), true
+	if pd.DeathCount%20 == 10 || pd.DeathCount == 16 || pd.DeathCount == 64 {
+		return (pd.Name + "は 通算" + strconv.Itoa(pd.DeathCount) + "回 死亡した。"), true
 	}
 	return "", false
 }
 
-// Kill回数を増やす、この時 通知イベントの発生を検査する
-func (this *PlayerData) KillCountUp() (string, bool) {
-	this.KillCount += 1
-	if this.KillCount == 7 || (this.KillCount%20 == 10) {
-		return (this.Name + "は 通算" + strconv.Itoa(this.KillCount) + "回 他のプレイヤーを殺した。"), true
+// KillCountUp :Kill回数を増やす、この時 通知イベントの発生を検査する
+func (pd *PlayerData) KillCountUp() (string, bool) {
+	pd.KillCount++
+	if pd.KillCount == 7 || (pd.KillCount%20 == 10) {
+		return (pd.Name + "は 通算" + strconv.Itoa(pd.KillCount) + "回 他のプレイヤーを殺した。"), true
 	}
 	return "", false
 }
 
+// Death :プレイヤーの死を記録する構造体
 type Death struct {
 	ID                  int
 	Type                int
@@ -90,15 +94,21 @@ type Death struct {
 	KilledBy            string    // 何によって死亡させられたか(Mob名またはプレイヤー名)
 	KilledByOtherPlayer bool      // 他プレイヤーからの攻撃で死亡した場合
 }
+
+// PlayerDwellTime :プレイヤー滞在時間
 type PlayerDwellTime struct {
 	Name      string
 	TotalTime time.Duration
 	LastLogin time.Time
 }
+
+// DwellTimeData :滞在時間データ
 type DwellTimeData struct {
 	Timestamp time.Time
 	Contents  []PlayerDwellTime
 }
+
+// Config :設定
 type Config struct {
 	MinecraftJarFileName string   `yaml:"MINECRAFT_JAR_FILE"`
 	ServerName           string   `yaml:"SERVER_NAME"`
@@ -107,6 +117,7 @@ type Config struct {
 	Detection            string   `yaml:"DETECTION"`
 }
 
+// SortFunc :構造体のソートを行う
 func SortFunc(l int, lessFunc func(i, j int) bool, swapFunc func(i, j int)) error {
 	for n := 0; n < l-1; n++ {
 		for m := l - 1; m > n; m-- {
