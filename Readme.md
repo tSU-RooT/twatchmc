@@ -18,7 +18,7 @@ $ go get github.com/tSU-RooT/twatchmc　　
 MINECRAFT_JAR_FILE: minecraft_server.1.7.9.jar # 例
 SERVER_NAME: MyMineCraftServer
 SHOW_DWELLTIME: true # プレイヤーの滞在時間を日付の変わり目に表示する
-OPTION: [-Xmx8128M, -Xms8128M] # JVMへのオプションの指定(各オプションは,[カンマ]で区切る)
+OPTION: [-Xmx8128M -Xms8128M] # JVMへのオプションの指定
 ````
 ## How to use　　
 1.write twatchmc.yml  
